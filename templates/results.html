@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Results - Writing Assistant</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #07b81a;
+            --error-color: #ff3f33;
+            --background: #f8f9fa;
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px;
+            line-height: 1.6;
+            color: var(--primary-color);
+        }
+        
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin: 40px 0;
+            font-size: 2.5em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        h1:before {
+            content: '📝';
+        }
+
+        .section { 
+            margin: 30px 0; 
+            padding: 25px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e0e0e0;
+            transition: transform 0.2s ease;
+        }
+
+        .section:hover {
+            transform: translateY(-2px);
+        }
+
+        h2 {
+            color: var(--secondary-color);
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.4em;
+        }
+
+        .highlighted-text {
+            padding: 20px;
+            background: var(--background);
+            border-radius: 8px;
+            font-size: 1.1em;
+        }
+
+        table {
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td { 
+            padding: 15px; 
+            text-align: left; 
+            border-bottom: 1px solid #eee; 
+        }
+
+        th { 
+            background-color: var(--background);
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .strikethrough { 
+            text-decoration: line-through; 
+            color: var(--error-color);
+            opacity: 0.8;
+        }
+
+        .correction { 
+            color: var(--success-color);
+            font-weight: 500;
+        }
+
+        .button {
+            display: inline-block;
+            padding: 12px 25px;
+            background: var(--secondary-color);
+            color: white !important;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+
+        .button:hover {
+            background: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .section-header-icon {
+            font-size: 1.2em;
+        }
+
+        #grammar-errors h2:before { content: '✍️'; }
+        #vocab-levels h2:before { content: '📊'; }
+        #uncategorized h2:before { content: '⚠️'; }
+        #corrected-text h2:before { content: '✅'; }
+
+        .uncategorized-words {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .word-pill {
+            background: #e0e0e0;
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Writing Analysis Report</h1>
+
+    <div class="section" id="corrected-text">
+        <h2>Corrected Text</h2>
+        <div class="highlighted-text">
+            {{ colored_html|safe }}
+        </div>
+    </div>
+
+    <div class="section" id="grammar-errors">
+        <h2>Grammar Improvements</h2>
+        <table>
+            <tr><th>Error Type</th><th>Count</th></tr>
+            {% for error, count in grammar_errors.items() %}
+            <tr><td>{{ error }}</td><td>{{ count }}</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <div class="section" id="vocab-levels">
+        <h2>Vocabulary Distribution</h2>
+        <table>
+            <tr><th>CEFR Level</th><th>Count</th></tr>
+            {% for level, count in vocab_levels.items() %}
+            <tr><td>{{ level }}</td><td>{{ count }}</td></tr>
+            {% endfor %}
+        </table>
+    </div>
+
+    <div class="section" id="uncategorized">
+        <h2>Uncategorized Words</h2>
+        <div class="uncategorized-words">
+            {% for word in uncategorized_words %}
+            <span class="word-pill">{{ word }}</span>
+            {% endfor %}
+        </div>
+    </div>
+
+    <center>
+        <a href="/" class="button">Analyze Another Text ➡️</a>
+    </center>
+</body>
+</html>

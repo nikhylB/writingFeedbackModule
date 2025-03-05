@@ -1,4 +1,6 @@
-from flask import Flask, request, render_template
+import modal
+from flask import Flask, request, render_template, jsonify, redirect, url_for
+# ... [Keep all your existing imports and classes] ...
 import pandas as pd
 import re
 import nltk
@@ -8,18 +10,6 @@ from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.stem import WordNetLemmatizer
 from spellchecker import SpellChecker
 from gramformer import Gramformer
-from flask import Flask, request, render_template, jsonify, redirect, url_for
-
-nltk.download('punkt_tab')
-#nltk.download('wordnet', quiet=True)
-#nltk.download('omw-1.4', quiet=True)
-
-app = Flask(__name__)
-
-# Existing class definitions from your code here (NLPInitializer, GrammarChecker, VocabularyAnalyzer, WritingFeedback)
-# ... [Keep all your existing classes exactly as they are] ...
-
-
 class NLPInitializer:
     def __init__(self):
         self._download_nltk_resources()
@@ -166,28 +156,53 @@ class WritingFeedback:
 
 
 
-# Initialize the feedback system once
-cefr_path = 'C:/Users/Dell/Downloads/cefr-vocab-cefrj-octanove.csv'
-feedback_system = WritingFeedback(cefr_path)
+# Initialize Modal stub
+stub = modal.Stub("writing-feedback-app")
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    if request.method == 'POST':
-        user_text = request.form.get('text', '').strip()
-        if not user_text:
-            return render_template('index.html', error="Please enter some text.")
+# Define custom image with all dependencies
+image = (
+    modal.Image.debian_slim()
+    .pip_install(
+        "flask",
+        "pandas",
+        "nltk",
+        "spacy",
+        "torch",
+        "spellchecker",
+        "gramformer",
+        "python-dotenv"
+    )
+    .run_commands(
+        "python -m spacy download en_core_web_sm",
+        "python -m nltk.downloader punkt wordnet omw-1.4"
+    )
+)
 
-        # Analyze the text
-        analysis = feedback_system.analyze_text(user_text)
+# Store CSV in Modal's persistent storage
+cefr_volume = modal.Volume.persisted("cefr-volume")
+CEFR_PATH = "/data/cefr.csv"
 
-        # Pass results to the results page
-        return render_template("results.html",
-                               colored_html=analysis.get('colored_html', ""),
-                               grammar_errors=analysis.get('grammar_errors', {}),
-                               vocab_levels=analysis.get('vocab_levels', {}),
-                               uncategorized_words=analysis.get('uncategorized_words', []))
-
-    return render_template("index.html")
-
-if __name__ == '__main__':
-    app.run(debug=True)
+@stub.function(
+    image=image,
+    volumes={CEFR_PATH: cefr_volume},
+    timeout=600,
+    concurrency_limit=1
+)
+@modal.asgi_app()
+def run():
+    # Initialize inside the Modal context
+    from your_module import WritingFeedback  # Import your actual class
+    
+    # Copy CSV from volume to container
+    with open("cefr-vocab-cefrj-octanove.csv", "rb") as f:
+        cefr_volume.add_file("cefr.csv", f.read())
+    
+    feedback_system = WritingFeedback(CEFR_PATH)
+    
+    app = Flask(__name__)
+    
+    @app.route('/', methods=['GET', 'POST'])
+    def index():
+        # ... [Your existing route code] ...
+    
+    return app

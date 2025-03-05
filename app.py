@@ -180,7 +180,7 @@ image = (
 
 # Store CSV in Modal's persistent storage
 cefr_volume = modal.Volume.persisted("cefr-volume")
-CEFR_PATH = "/data/cefr.csv"
+CEFR_PATH = "cefr-vocab-cefrj-octanove.csv"
 
 @stub.function(
     image=image,

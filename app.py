@@ -204,5 +204,19 @@ def run():
     @app.route('/', methods=['GET', 'POST'])
     def index():
         # ... [Your existing route code] ...
+        if request.method == 'POST':
+        user_text = request.form.get('text', '').strip()
+        if not user_text:
+            return render_template('index.html', error="Please enter some text.")
+
+        # Analyze the text
+        analysis = feedback_system.analyze_text(user_text)
+
+        # Pass results to the results page
+        return render_template("results.html",
+                               colored_html=analysis.get('colored_html', ""),
+                               grammar_errors=analysis.get('grammar_errors', {}),
+                               vocab_levels=analysis.get('vocab_levels', {}),
+                               uncategorized_words=analysis.get('uncategorized_words', []))
     
     return app

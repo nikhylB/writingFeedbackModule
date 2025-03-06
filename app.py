@@ -1,6 +1,5 @@
 import modal
-from flask import Flask, request, render_template, jsonify, redirect, url_for
-# ... [Keep all your existing imports and classes] ...
+from flask import Flask, request, render_template
 import pandas as pd
 import re
 import nltk
@@ -10,6 +9,34 @@ from nltk.tokenize import word_tokenize, sent_tokenize
 from nltk.stem import WordNetLemmatizer
 from spellchecker import SpellChecker
 from gramformer import Gramformer
+
+# Initialize Modal stub
+stub = modal.Stub("writing-feedback-app")
+
+# Define custom image with all dependencies
+image = (
+    modal.Image.debian_slim()
+    .pip_install(
+        "flask",
+        "pandas",
+        "nltk",
+        "spacy",
+        "torch",
+        "spellchecker",
+        "gramformer",
+        "python-dotenv",
+        "transformers"
+    )
+    .run_commands(
+        "python -m spacy download en_core_web_sm",
+        "python -m nltk.downloader punkt wordnet omw-1.4"
+    )
+)
+
+# Store CSV in Modal's persistent storage
+cefr_volume = modal.Volume.persisted("cefr-volume")
+CEFR_PATH = "/data/cefr.csv"
+
 class NLPInitializer:
     def __init__(self):
         self._download_nltk_resources()
@@ -35,9 +62,7 @@ class GrammarChecker:
         
     def _initialize_gramformer(self):
         torch.manual_seed(1212)
-        if torch.cuda.is_available():
-            torch.cuda.manual_seed_all(1212)
-        self.gf = Gramformer(models=1, use_gpu=False)
+        self.gf = Gramformer(models=1, use_gpu=False, token=False)  # Added token=False
     
     @staticmethod
     def _strikethrough(text):
@@ -98,8 +123,6 @@ class VocabularyAnalyzer:
     
     def _load_cefr_data(self, path):
         cefr_df = pd.read_csv(path)
-        if 'headword' not in cefr_df or 'CEFR' not in cefr_df:
-            raise ValueError("CSV must contain 'headword' and 'CEFR' columns")
         self.cefr_mapping = dict(cefr_df[['headword', 'CEFR']].values)
         self.cefr_words = set(cefr_df['headword'])
     
@@ -149,38 +172,10 @@ class WritingFeedback:
             'original': text,
             'corrected': corrected_text,
             'colored_html': colored_text,
-            'grammar_errors': grammar_stats.to_dict(),  # Convert to dictionary
-            'vocab_levels': vocab_stats.to_dict(),  # Convert to dictionary
+            'grammar_errors': grammar_stats.to_dict(),
+            'vocab_levels': vocab_stats.to_dict(),
             'uncategorized_words': uncategorized
         }
-
-
-
-# Initialize Modal stub
-stub = modal.Stub("writing-feedback-app")
-
-# Define custom image with all dependencies
-image = (
-    modal.Image.debian_slim()
-    .pip_install(
-        "flask",
-        "pandas",
-        "nltk",
-        "spacy",
-        "torch",
-        "spellchecker",
-        "gramformer",
-        "python-dotenv"
-    )
-    .run_commands(
-        "python -m spacy download en_core_web_sm",
-        "python -m nltk.downloader punkt wordnet omw-1.4"
-    )
-)
-
-# Store CSV in Modal's persistent storage
-cefr_volume = modal.Volume.persisted("cefr-volume")
-CEFR_PATH = "cefr-vocab-cefrj-octanove.csv"
 
 @stub.function(
     image=image,
@@ -189,34 +184,25 @@ CEFR_PATH = "cefr-vocab-cefrj-octanove.csv"
     concurrency_limit=1
 )
 @modal.asgi_app()
-def run():
-    # Initialize inside the Modal context
-    from your_module import WritingFeedback  # Import your actual class
-    
-    # Copy CSV from volume to container
-    with open("cefr-vocab-cefrj-octanove.csv", "rb") as f:
-        cefr_volume.add_file("cefr.csv", f.read())
-    
-    feedback_system = WritingFeedback(CEFR_PATH)
-    
+def create_app():
     app = Flask(__name__)
-    
+    feedback_system = WritingFeedback(CEFR_PATH)
+
     @app.route('/', methods=['GET', 'POST'])
     def index():
-        # ... [Your existing route code] ...
         if request.method == 'POST':
-        user_text = request.form.get('text', '').strip()
-        if not user_text:
-            return render_template('index.html', error="Please enter some text.")
+            user_text = request.form.get('text', '').strip()
+            if not user_text:
+                return render_template('index.html', error="Please enter some text.")
 
-        # Analyze the text
-        analysis = feedback_system.analyze_text(user_text)
+            analysis = feedback_system.analyze_text(user_text)
+            return render_template(
+                "results.html",
+                colored_html=analysis.get('colored_html', ""),
+                grammar_errors=analysis.get('grammar_errors', {}),
+                vocab_levels=analysis.get('vocab_levels', {}),
+                uncategorized_words=analysis.get('uncategorized_words', [])
+            )
+        return render_template("index.html")
 
-        # Pass results to the results page
-        return render_template("results.html",
-                               colored_html=analysis.get('colored_html', ""),
-                               grammar_errors=analysis.get('grammar_errors', {}),
-                               vocab_levels=analysis.get('vocab_levels', {}),
-                               uncategorized_words=analysis.get('uncategorized_words', []))
-    
     return app
